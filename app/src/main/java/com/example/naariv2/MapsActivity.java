@@ -38,11 +38,11 @@ import java.util.List;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private static final int LOCATION_PERMISSION_REQUEST = 1;
+    private com.google.android.gms.maps.model.Polyline currentRoute;
 
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
     private RequestQueue requestQueue;
-    private com.google.android.gms.maps.model.Polyline currentRoute;
 
     private LatLng userLocation;
     private View infoBox;

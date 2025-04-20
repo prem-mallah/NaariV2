@@ -1,6 +1,14 @@
+
 plugins {
     id 'com.android.application'
 }
+// Load secrets from secrets.properties
+def secretsFile = rootProject.file("secrets.properties")
+def secretProps = new Properties()
+if (secretsFile.exists()) {
+    secretProps.load(new FileInputStream(secretsFile))
+}
+def MAPS_API_KEY = secretProps.getProperty("MAPS_API_KEY") ?: ""
 
 android {
     namespace 'com.example.naariv2'
@@ -12,7 +20,7 @@ android {
         targetSdk 33
         versionCode 1
         versionName "1.0"
-
+        manifestPlaceholders = [ MAPS_API_KEY: MAPS_API_KEY ]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
