@@ -5,7 +5,9 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Looper;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -18,6 +20,8 @@ import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -25,6 +29,7 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
@@ -48,6 +53,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private View infoBox;
     private TextView distanceText, timeText;
 
+    // Add CheckBoxes for toggling place visibility
+    private CheckBox policeStationCheckbox;
+    private CheckBox hospitalCheckbox;
+
+    // Store markers for police stations and hospitals
+    private List<Marker> policeMarkers = new ArrayList<>();
+    private List<Marker> hospitalMarkers = new ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +70,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         infoBox = findViewById(R.id.infoBox);
         distanceText = findViewById(R.id.distanceText);
         timeText = findViewById(R.id.timeText);
+
+        // Initialize CheckBoxes
+        policeStationCheckbox = findViewById(R.id.policeStationCheckbox);
+        hospitalCheckbox = findViewById(R.id.hospitalCheckbox);
+
+        // Set default state to checked (true)
+        policeStationCheckbox.setChecked(true);
+        hospitalCheckbox.setChecked(true);
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         requestQueue = Volley.newRequestQueue(this);
@@ -69,6 +90,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             Toast.makeText(this, "Map fragment is null", Toast.LENGTH_SHORT).show();
         }
+
+        // Add listeners for checkboxes
+        policeStationCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("police", isChecked));
+        hospitalCheckbox.setOnCheckedChangeListener((buttonView, isChecked) -> updateMarkers("hospital", isChecked));
     }
 
     @Override
@@ -87,22 +112,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.setMyLocationEnabled(true);
 
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
-            if (location != null) {
-                userLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
+        // LocationRequest for more accurate location fetching
+        LocationRequest locationRequest = LocationRequest.create();
+        locationRequest.setInterval(10000); // 10 seconds
+        locationRequest.setFastestInterval(5000); // 5 seconds
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
-                fetchNearbyPlaces(location.getLatitude(), location.getLongitude(), "police");
-                fetchNearbyPlaces(location.getLatitude(), location.getLongitude(), "hospital");
-            } else {
-                Toast.makeText(this, "Could not get current location", Toast.LENGTH_SHORT).show();
+        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull com.google.android.gms.location.LocationResult locationResult) {
+                if (locationResult != null && locationResult.getLocations().size() > 0) {
+                    userLocation = new LatLng(locationResult.getLastLocation().getLatitude(),
+                            locationResult.getLastLocation().getLongitude());
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 15));
+
+                    fetchNearbyPlaces(userLocation.latitude, userLocation.longitude, "police");
+                    fetchNearbyPlaces(userLocation.latitude, userLocation.longitude, "hospital");
+                } else {
+                    Toast.makeText(MapsActivity.this, "Could not get current location", Toast.LENGTH_SHORT).show();
+                }
             }
-        });
+        }, Looper.getMainLooper());
 
         mMap.setOnMarkerClickListener(marker -> {
             LatLng markerPosition = marker.getPosition();
             getTravelDistanceUsingGoogleApi(userLocation, markerPosition);
-            return false;
+            return true; // return true to indicate the event was handled
         });
     }
 
@@ -133,13 +168,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             String name = place.getString("name");
 
                             LatLng latLng = new LatLng(lat, lng);
-                            mMap.addMarker(new MarkerOptions()
+                            MarkerOptions marker = new MarkerOptions()
                                     .position(latLng)
                                     .title(name)
                                     .icon(placeType.equals("police") ?
                                             BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED) :
-                                            BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+                                            BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+
+                            if (placeType.equals("police")) {
+                                policeMarkers.add(mMap.addMarker(marker));
+                            } else {
+                                hospitalMarkers.add(mMap.addMarker(marker));
+                            }
                         }
+                        updateMarkers(placeType, placeType.equals("police") ? policeStationCheckbox.isChecked() : hospitalCheckbox.isChecked());
                     } catch (JSONException e) {
                         e.printStackTrace();
                         Toast.makeText(this, "Error parsing " + placeType + " data", Toast.LENGTH_SHORT).show();
@@ -148,6 +190,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 error -> Toast.makeText(this, "Failed to fetch " + placeType, Toast.LENGTH_SHORT).show());
 
         requestQueue.add(request);
+    }
+
+    private void updateMarkers(String placeType, boolean show) {
+        if (placeType.equals("police")) {
+            for (Marker marker : policeMarkers) {
+                marker.setVisible(show);
+            }
+        } else if (placeType.equals("hospital")) {
+            for (Marker marker : hospitalMarkers) {
+                marker.setVisible(show);
+            }
+        }
     }
 
     private void getTravelDistanceUsingGoogleApi(LatLng origin, LatLng destination) {
@@ -201,7 +255,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         currentRoute = mMap.addPolyline(options); // Save reference to current route
     }
-
 
     private List<LatLng> decodePolyline(String encoded) {
         List<LatLng> polyline = new ArrayList<>();
