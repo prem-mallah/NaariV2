@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Google Map Fragment -->
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Info Box Overlay at Bottom -->
+    <include
+        layout="@layout/info_box"
+        android:id="@+id/infoBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:visibility="gone" />
+
+    <!-- Filter Box at Top-Left -->
+    <LinearLayout
+        android:id="@+id/filterBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#AAFFFFFF"
+        android:padding="10dp"
+        android:layout_margin="10dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:elevation="6dp">
+
+        <CheckBox
+            android:id="@+id/checkbox_police"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Show Police Stations"
+            android:checked="true" />
+
+        <CheckBox
+            android:id="@+id/checkbox_hospital"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Show Hospitals"
+            android:checked="true" />
+    </LinearLayout>
+</RelativeLayout>
